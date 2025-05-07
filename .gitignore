@@ -1,5 +1,7 @@
 runs/
 data
 data
-results.jpg
+result.jpg
 venv_new
+__pycache__
+checkpoints
