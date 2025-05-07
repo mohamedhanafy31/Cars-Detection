@@ -9,16 +9,17 @@ from config import DEVICE, INPUT_SIZE, NUM_CLASSES
 import cv2
 
 class CarDetector:
-    def __init__(self, model_path, confidence_threshold=0.5):
+    def __init__(self, model_path, confidence_threshold=0.5, segmentation_method='threshold'):
         """
         Initialize the car detector with a trained model.
         
         Args:
             model_path (str): Path to the trained model weights (.pth file)
             confidence_threshold (float): Minimum confidence score for detections (0-1)
+            segmentation_method (str): Method to use for segmentation ('threshold', 'edge', 'region', 'clustering')
         """
         self.device = torch.device(DEVICE)
-        self.model = build_faster_rcnn().to(self.device)
+        self.model = build_faster_rcnn(segmentation_method=segmentation_method).to(self.device)
         self.model.load_state_dict(torch.load(model_path, map_location=self.device))
         self.model.eval()
         
@@ -57,16 +58,16 @@ class CarDetector:
         
         # Apply transformations
         image_tensor = self.transform(image)
-        return image_tensor.unsqueeze(0)  # Add batch dimension
+        return image_tensor
 
     def postprocess_predictions(self, predictions, original_size):
         """Convert predictions to original image coordinates and filter by confidence"""
         detections = []
         
         # Get boxes, scores, and labels
-        boxes = predictions[0]['boxes'].cpu().detach().numpy()
-        scores = predictions[0]['scores'].cpu().detach().numpy()
-        labels = predictions[0]['labels'].cpu().detach().numpy()
+        boxes = predictions['boxes'].cpu().detach().numpy()
+        scores = predictions['scores'].cpu().detach().numpy()
+        labels = predictions['labels'].cpu().detach().numpy()
         
         # Convert normalized coordinates to pixel coordinates
         height, width = original_size
@@ -112,10 +113,10 @@ class CarDetector:
 
         # Get predictions
         with torch.no_grad():
-            predictions = self.model(image_tensor)
+            predictions = self.model([image_tensor])
 
         # Process predictions
-        detections = self.postprocess_predictions(predictions, original_size)
+        detections = self.postprocess_predictions(predictions[0], original_size)
         return detections
 
     def draw_detections(self, image, detections):

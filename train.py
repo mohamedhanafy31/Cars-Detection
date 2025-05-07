@@ -39,7 +39,8 @@ def save_checkpoint(model, optimizer, scheduler, epoch, metrics, is_best=False):
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'scheduler_state_dict': scheduler.state_dict(),
-        'metrics': metrics
+        'metrics': metrics,
+        'segmentation_method': model.segmentation_method if hasattr(model, 'segmentation_method') else 'threshold'
     }
     
     # Create checkpoints directory if it doesn't exist
@@ -55,7 +56,7 @@ def save_checkpoint(model, optimizer, scheduler, epoch, metrics, is_best=False):
         torch.save(checkpoint, best_model_path)
         print(f"New best model saved with validation loss: {metrics['avg_val_loss']:.4f}")
 
-def train():
+def train(segmentation_method='threshold'):
     transform = T.Compose([
         T.Resize(INPUT_SIZE),
         T.ToTensor()
@@ -69,7 +70,7 @@ def train():
     val_dataset = CarDataset(image_dir=val_image_dir, annotation_dir=val_ann_dir, transforms=transform)
     val_dataloader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, collate_fn=lambda x: tuple(zip(*x)))
 
-    model = build_faster_rcnn().to(DEVICE)
+    model = build_faster_rcnn(segmentation_method=segmentation_method).to(DEVICE)
     
     # Initialize Adam optimizer with weight decay
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=1e-4)
@@ -193,7 +194,8 @@ def train():
             'scheduler': 'ReduceLROnPlateau',
             'scheduler_patience': 3,
             'scheduler_factor': 0.1,
-            'min_lr': 1e-6
+            'min_lr': 1e-6,
+            'segmentation_method': segmentation_method
         }
         with open(os.path.join(run_dir, 'config.json'), 'w') as f:
             json.dump(config, f, indent=4)
@@ -203,4 +205,5 @@ def train():
     print(f"\nTraining completed. Results saved in {run_dir}")
 
 if __name__ == "__main__":
-    train()
+    # You can specify which segmentation method to use
+    train(segmentation_method='threshold')  # Options: 'threshold', 'edge', 'region', 'clustering'
